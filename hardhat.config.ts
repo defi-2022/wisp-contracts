@@ -26,9 +26,9 @@ const config: HardhatUserConfig = {
   circom: {
     inputBasePath: "./circuits",
     outputBasePath: "./artifacts/circuits",
-    ptau: "pot12_final.ptau",
+    ptau: "pot15_final.ptau",
     circuits: [{
-      name: "withdraw",
+      name: "transaction",
       input: "input.json",
       version: 2,
     }],
