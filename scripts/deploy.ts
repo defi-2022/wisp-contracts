@@ -2,7 +2,6 @@ import "@typechain/hardhat"
 import "@nomiclabs/hardhat-ethers"
 import hre, { ethers } from "hardhat";
 import fs from "fs";
-import { deployToken } from "./deployToken";
 import { deployVerifier } from "./deployVerifier";
 import { deployHasher } from "./deployHasher";
 
@@ -11,11 +10,6 @@ const deploy = async () => {
 
   if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
-  }
-
-  const tokenPath = `${outDir}token.address`;
-  if (!fs.existsSync(tokenPath)) {
-    await deployToken(tokenPath);
   }
 
   const verifierPath = `${outDir}verifier.address`;
@@ -28,12 +22,16 @@ const deploy = async () => {
     await deployHasher(hasherPath);
   }
 
-  const tokenAddress = fs.readFileSync(tokenPath, "utf8");
+  const tokenAddresses = [
+    '0x06f875b02a7a42ce6677360159b0c5598fb1eab1',
+    '0x0ffc5e6846d639b11a937d91e4ab62e05e2a642b',
+    '0xc3d804b24f3ae0bcc9455c384ab31c783297f285'
+  ];
   const verifierAddress = fs.readFileSync(verifierPath, "utf8");
   const hasherAddress = fs.readFileSync(hasherPath, "utf8");
 
   const Wisp = await ethers.getContractFactory("Wisp");
-  const wisp = await Wisp.deploy(10, hasherAddress, verifierAddress, [tokenAddress]);
+  const wisp = await Wisp.deploy(10, hasherAddress, verifierAddress, tokenAddresses);
   console.log("Wisp deployed to:", wisp.address);
 
   fs.writeFileSync(`${outDir}wisp.address`, wisp.address);

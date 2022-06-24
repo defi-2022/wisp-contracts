@@ -9,9 +9,9 @@ export const deployVerifier = async (path: string) => {
     return;
   }
 
-  const Verifier = await ethers.getContractFactory("Verifier");
-  const verifier = await Verifier.deploy();
-  console.log("Verifier deployed to:", verifier.address);
+  const DepositVerifier = await ethers.getContractFactory("DepositVerifier");
+  const depositVerifier = await DepositVerifier.deploy();
+  console.log("DepositVerifier deployed to:", depositVerifier.address);
 
-  fs.writeFileSync(path, verifier.address);
+  fs.writeFileSync(path, depositVerifier.address);
 }
