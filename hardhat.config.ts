@@ -29,7 +29,11 @@ const config: HardhatUserConfig = {
     ptau: "pot15_final.ptau",
     circuits: [{
       name: "transaction",
-      input: "input.json",
+      input: "input_transaction.json",
+      version: 2,
+    }, {
+      name: "deposit",
+      input: "input_deposit.json",
       version: 2,
     }],
   },
@@ -58,19 +62,16 @@ type ZKeys = {
 
 subtask(TASK_CIRCOM_TEMPLATE, "generate Verifier template shipped by SnarkJS")
   .setAction(async ({ zkeys }: ZKeys, hre: HardhatRuntimeEnvironment) => {
-
-    const groth16Template = fs.readFileSync(path.resolve("./circuits/template/verifier_groth16.sol.ejs"), "utf8");
-
-    let combinedVerifier = "";
+    const base = fs.readFileSync(path.resolve("./circuits/template/base_groth16.sol.ejs"), "utf8");
     for (const zkey of zkeys) {
+      const groth16Template = fs.readFileSync(path.resolve(`./circuits/template/${zkey.name}_verifier_groth16.sol.ejs`), "utf8");
       const verifierSol = await hre.snarkjs.zKey.exportSolidityVerifier(zkey, {
         groth16: groth16Template,
         plonk: "",
       });
-      combinedVerifier += verifierSol;
+      const fileName = zkey.name.charAt(0).toUpperCase() + zkey.name.slice(1) + "Verifier.sol";
+      fs.writeFileSync("./artifacts/circuits/" + fileName, base + '\n' + verifierSol);
     }
-
-    fs.writeFileSync("./artifacts/circuits/Verifier.sol", combinedVerifier);
   });
 
 subtask(TASK_COMPILE_HASHER)

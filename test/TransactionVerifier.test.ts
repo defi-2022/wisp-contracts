@@ -1,16 +1,16 @@
 import "@nomiclabs/hardhat-ethers"
 import chai from "chai";
 import { ethers } from "hardhat"
-import { Verifier } from "../artifacts/contracts/types"
+import { TransactionVerifier } from "../artifacts/contracts/types";
 import { BigNumber } from "ethers";
 import { PoseidonHasher } from "../utils/hasher";
 import { randomBN } from "../utils/random";
 import { MerkleTree } from "fixed-merkle-tree";
 // @ts-ignore
 import { buildPoseidon } from "circomlibjs";
-import { generateProof } from "../utils/proof";
+import { generateTransactionProof } from "../utils/proof";
 
-describe("Verifier", () => {
+describe("TransactionVerifier", () => {
   let poseidon: PoseidonHasher;
 
   before(async () => {
@@ -18,18 +18,20 @@ describe("Verifier", () => {
   });
 
   it("should verify proof", async () => {
-    const Verifier = await ethers.getContractFactory("Verifier");
-    const verifier = (await Verifier.deploy()) as Verifier;
+    const TransactionVerifier = await ethers.getContractFactory("TransactionVerifier");
+    const verifier = (await TransactionVerifier.deploy()) as TransactionVerifier;
 
     const [signer] = await ethers.getSigners();
     const privateKey = BigNumber.from(ethers.utils.sha256(await signer.signMessage('some message')));
+    const randomNonce = randomBN().toString()
+    const randomPublicKey = poseidon.hash([privateKey, randomNonce]);
     const personalPublicKey = poseidon.hash([privateKey, 0]);
     const currency = randomBN(20);
     const inBlinding = [randomBN(), randomBN()];
     const inAmount = [ethers.utils.parseEther("0.5"), BigNumber.from(0)];
 
     const inCommitment1 = poseidon.hash([personalPublicKey, inBlinding[0], inAmount[0], currency]);
-    const inCommitment2 = poseidon.hash([personalPublicKey, inBlinding[1], inAmount[1], currency]);
+    const inCommitment2 = poseidon.hash([randomPublicKey, inBlinding[1], inAmount[1], currency]);
 
     const elements = [];
     for (let i = 0; i < 569; i++) {
@@ -58,7 +60,7 @@ describe("Verifier", () => {
 
     const input = {
       privateKey: privateKey.toString(),
-      nonce: ["0", randomBN().toString()],
+      nonce: ["0", randomNonce],
       currency: currency.toString(),
       inBlinding: inBlinding.map(it => it.toString()),
       inAmount: inAmount.map(it => it.toString()),
@@ -72,7 +74,7 @@ describe("Verifier", () => {
       outAmount: outAmount.map(it => it.toString()),
     }
 
-    const proof = await generateProof(input);
+    const proof = await generateTransactionProof(input);
     const valid = await verifier.verifyProof(
       [proof.pi_a[0], proof.pi_a[1]],
       [[proof.pi_b[0][1], proof.pi_b[0][0]], [proof.pi_b[1][1], proof.pi_b[1][0]]],
@@ -85,7 +87,7 @@ describe("Verifier", () => {
       ]
     );
 
-    chai.expect(true).to.be.equal(true);
+    chai.expect(valid).to.be.equal(true);
   });
 
   it("print zero value", async () => {

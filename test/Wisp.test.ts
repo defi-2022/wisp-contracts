@@ -1,7 +1,7 @@
 import "@nomiclabs/hardhat-ethers"
 import { ethers } from "hardhat";
 import { PoseidonHasher } from "../utils/hasher";
-import { IPoseidonHasher, Verifier, Wisp, WispToken } from "../artifacts/contracts/types";
+import { IPoseidonHasher, TransactionVerifier, Wisp, WispToken } from "../artifacts/contracts/types";
 // @ts-ignore
 import { buildPoseidon } from "circomlibjs";
 import chai from "chai";
@@ -14,7 +14,7 @@ import { getEncryptionPublicKey } from "@metamask/eth-sig-util";
 describe("Wisp", () => {
   let poseidon: PoseidonHasher;
   let token: WispToken;
-  let verifier: Verifier;
+  let transactionVerifier: TransactionVerifier;
   let hasher: IPoseidonHasher;
   let wisp: Wisp;
 
@@ -29,14 +29,14 @@ describe("Wisp", () => {
     const amount = ethers.utils.parseEther("100");
     await token.mint(amount);
 
-    const Verifier = await ethers.getContractFactory("Verifier");
-    verifier = (await Verifier.deploy()) as Verifier;
+    const TransactionVerifier = await ethers.getContractFactory("TransactionVerifier");
+    transactionVerifier = (await TransactionVerifier.deploy()) as TransactionVerifier;
 
     const Hasher = await ethers.getContractFactory("PoseidonHasher");
-    hasher = (await Hasher.deploy()) as IPoseidonHasher;
+    hasher = (await Hasher.deploy()) as unknown as IPoseidonHasher;
 
     const Wisp = await ethers.getContractFactory("Wisp");
-    wisp = (await Wisp.deploy(10, hasher.address, verifier.address, [token.address])) as Wisp;
+    wisp = (await Wisp.deploy(10, hasher.address, transactionVerifier.address, [token.address])) as Wisp;
 
     await token.approve(wisp.address, amount);
   });
