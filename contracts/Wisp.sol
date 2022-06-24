@@ -4,14 +4,15 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./MerkleTree.sol";
+import "./DepositVerifier.sol";
 
 contract Wisp is MerkleTree {
 
-    address public immutable verifier;
+    DepositVerifier public immutable depositVerifier;
 
     mapping(address => bool) public tokens;
 
-    event Payment(bytes32 publicKey, uint256 amount, address token, uint256 commitment, bytes encryptedData, uint32 index);
+    event Payment(uint256 publicKey, uint256 commitment, bytes encryptedData, uint32 index);
 
     constructor(
         uint8 _levels,
@@ -19,18 +20,32 @@ contract Wisp is MerkleTree {
         address _verifier,
         address[] memory _tokens
     ) MerkleTree(_levels, _hasher) {
-        verifier = _verifier;
+        depositVerifier = DepositVerifier(_verifier);
 
         for (uint8 i = 0; i < _tokens.length; i++) {
             tokens[_tokens[i]] = true;
         }
     }
 
-    function pay(bytes32 publicKey, uint256 amount, address token, uint256 commitment, bytes calldata encryptedData) external {
+    function deposit(
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint256 commitment,
+        uint256 publicKey,
+        uint256 amount,
+        address token,
+        bytes calldata encryptedData
+    ) external {
         require(tokens[token], "Token is not supported");
 
+        uint256 encryptedDataHash = uint256(keccak256(encryptedData)) % FIELD_SIZE;
+        require(depositVerifier.verifyProof(a, b, c, [commitment, publicKey, amount, uint256(uint160(token)), encryptedDataHash]),
+            "Deposit is not valid");
+
         IERC20(token).transferFrom(msg.sender, address(this), amount);
+
         uint32 index = insert(commitment);
-        emit Payment(publicKey, amount, token, commitment, encryptedData, index);
+        emit Payment(publicKey, commitment, encryptedData, index);
     }
 }

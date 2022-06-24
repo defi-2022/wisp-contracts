@@ -1,20 +1,21 @@
 import "@nomiclabs/hardhat-ethers"
 import { ethers } from "hardhat";
 import { PoseidonHasher } from "../utils/hasher";
-import { IPoseidonHasher, TransactionVerifier, Wisp, WispToken } from "../artifacts/contracts/types";
+import { DepositVerifier, IPoseidonHasher, Wisp, WispToken } from "../artifacts/contracts/types";
 // @ts-ignore
 import { buildPoseidon } from "circomlibjs";
 import chai from "chai";
 import { BigNumber } from "ethers";
 import { randomBN } from "../utils/random";
-import { MerkleTree } from "fixed-merkle-tree";
 import { encryptData } from "../utils/encryption";
 import { getEncryptionPublicKey } from "@metamask/eth-sig-util";
+import { generateDepositProof } from "../utils/proof";
+import { MerkleTree } from "fixed-merkle-tree";
 
 describe("Wisp", () => {
   let poseidon: PoseidonHasher;
   let token: WispToken;
-  let transactionVerifier: TransactionVerifier;
+  let depositVerifier: DepositVerifier;
   let hasher: IPoseidonHasher;
   let wisp: Wisp;
 
@@ -29,14 +30,14 @@ describe("Wisp", () => {
     const amount = ethers.utils.parseEther("100");
     await token.mint(amount);
 
-    const TransactionVerifier = await ethers.getContractFactory("TransactionVerifier");
-    transactionVerifier = (await TransactionVerifier.deploy()) as TransactionVerifier;
+    const DepositVerifier = await ethers.getContractFactory("DepositVerifier");
+    depositVerifier = (await DepositVerifier.deploy()) as DepositVerifier;
 
     const Hasher = await ethers.getContractFactory("PoseidonHasher");
     hasher = (await Hasher.deploy()) as unknown as IPoseidonHasher;
 
     const Wisp = await ethers.getContractFactory("Wisp");
-    wisp = (await Wisp.deploy(10, hasher.address, transactionVerifier.address, [token.address])) as Wisp;
+    wisp = (await Wisp.deploy(10, hasher.address, depositVerifier.address, [token.address])) as Wisp;
 
     await token.approve(wisp.address, amount);
   });
@@ -54,14 +55,33 @@ describe("Wisp", () => {
     const personalPublicKey = poseidon.hash([privateKey, 0]);
     const blinding = randomBN();
     const amount = ethers.utils.parseEther("0.5");
-    const commitment = poseidon.hash([personalPublicKey, blinding, amount, BigNumber.from(token.address)]);
-    const encryptedData = encryptData(encryptionKey, ethers.utils.toUtf8Bytes(
-      personalPublicKey.toHexString() + blinding.toHexString() + amount.toHexString() + token.address
-    ));
+    const commitment = poseidon.hash([personalPublicKey, blinding, amount, token.address]);
+    const encryptedData = encryptData(encryptionKey, Buffer.concat([
+      ethers.utils.arrayify(personalPublicKey.toHexString()),
+      ethers.utils.arrayify(blinding.toHexString()),
+      ethers.utils.arrayify(amount.toHexString()),
+      ethers.utils.arrayify(token.address),
+    ]));
 
-    await chai.expect(wisp.pay(personalPublicKey.toHexString(), amount, token.address, commitment, encryptedData))
+    const encryptedDataHash = ethers.utils.solidityKeccak256(["bytes"], [encryptedData]);
+
+    const proof = await generateDepositProof({
+      publicKey: personalPublicKey.toString(),
+      blinding: blinding.toString(),
+      amount: amount.toString(),
+      currency: BigNumber.from(token.address).toString(),
+      encryptedDataHash: encryptedDataHash,
+    });
+
+    const depositTransaction = wisp.deposit(
+      [proof.pi_a[0], proof.pi_a[1]],
+      [[proof.pi_b[0][1], proof.pi_b[0][0]], [proof.pi_b[1][1], proof.pi_b[1][0]]],
+      [proof.pi_c[0], proof.pi_c[1]],
+      commitment, personalPublicKey, amount, token.address, encryptedData
+    )
+    await chai.expect(depositTransaction)
       .to.emit(wisp, "Payment")
-      .withArgs(personalPublicKey.toHexString(), amount, token.address, commitment, encryptedData, 0);
+      .withArgs(personalPublicKey.toHexString(), commitment, encryptedData, 0);
 
     const tree = new MerkleTree(10, [], {
       hashFunction: (a, b) => poseidon.hash([BigNumber.from(a), BigNumber.from(b)]).toString(),
