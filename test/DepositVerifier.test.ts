@@ -40,12 +40,7 @@ describe("DepositVerifier", () => {
     }
 
     const proof = await generateDepositProof(input);
-    const valid = await verifier.verifyProof(
-      [proof.pi_a[0], proof.pi_a[1]],
-      [[proof.pi_b[0][1], proof.pi_b[0][0]], [proof.pi_b[1][1], proof.pi_b[1][0]]],
-      [proof.pi_c[0], proof.pi_c[1]],
-      [commitment, publicKey, amount, currency, encryptedDataHash]
-    );
+    const valid = await verifier.verifyProof(proof, [commitment, publicKey, amount, currency, encryptedDataHash]);
 
     chai.expect(valid).to.be.equal(true);
   });

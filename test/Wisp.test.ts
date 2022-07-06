@@ -73,12 +73,7 @@ describe("Wisp", () => {
       encryptedDataHash: encryptedDataHash,
     });
 
-    const depositTransaction = wisp.deposit(
-      [proof.pi_a[0], proof.pi_a[1]],
-      [[proof.pi_b[0][1], proof.pi_b[0][0]], [proof.pi_b[1][1], proof.pi_b[1][0]]],
-      [proof.pi_c[0], proof.pi_c[1]],
-      commitment, personalPublicKey, amount, token.address, encryptedData
-    )
+    const depositTransaction = wisp.deposit(proof, commitment, personalPublicKey, amount, token.address, encryptedData);
     await chai.expect(depositTransaction)
       .to.emit(wisp, "Payment")
       .withArgs(personalPublicKey.toHexString(), commitment, encryptedData, 0);
