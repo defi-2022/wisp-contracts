@@ -5,14 +5,6 @@ import { groth16 } from "snarkjs";
 import { utils } from "ffjavascript";
 import { ethers } from "ethers";
 
-export type Proof = {
-  pi_a: string[3],
-  pi_b: string[3][2],
-  pi_c: string[2],
-  protocol: string,
-  curve: string
-}
-
 export type TransactionInput = {
   privateKey: string,
   nonce: string[],
@@ -29,13 +21,18 @@ export type TransactionInput = {
   outAmount: string[],
 }
 
-export const generateTransactionProof = async (input: TransactionInput): Promise<Proof> => {
+export const generateTransactionProof = async (input: TransactionInput): Promise<string> => {
   const { proof } = await groth16.fullProve(
     utils.stringifyBigInts(input),
     "./artifacts/circuits/transaction.wasm",
     "./artifacts/circuits/transaction.zkey");
 
-  return proof;
+  return ethers.utils.defaultAbiCoder.encode(["uint256[8]"],
+    [[
+      proof.pi_a[0], proof.pi_a[1],
+      proof.pi_b[0][1], proof.pi_b[0][0], proof.pi_b[1][1], proof.pi_b[1][0],
+      proof.pi_c[0], proof.pi_c[1]
+    ]]);
 }
 
 export type DepositInput = {

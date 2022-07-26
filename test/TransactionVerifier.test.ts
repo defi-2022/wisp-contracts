@@ -1,4 +1,3 @@
-import "@nomiclabs/hardhat-ethers"
 import chai from "chai";
 import { ethers } from "hardhat"
 import { TransactionVerifier } from "../artifacts/contracts/types";
@@ -56,7 +55,10 @@ describe("TransactionVerifier", () => {
     const outBlinding = [randomBN(), randomBN()];
     const outAmount = [ethers.utils.parseEther("0.25"), ethers.utils.parseEther("0.15")];
     const outCommitment1 = poseidon.hash([personalPublicKey, outBlinding[0], outAmount[0], currency]);
-    const outCommitment2 = poseidon.hash([personalPublicKey, outBlinding[1], outAmount[1], currency]);
+    const outCommitment2 = poseidon.hash([randomPublicKey, outBlinding[1], outAmount[1], currency]);
+
+    const root = merkleProof.pathRoot.toString();
+    const recipient = ethers.Wallet.createRandom().address;
 
     const input = {
       privateKey: privateKey.toString(),
@@ -64,26 +66,30 @@ describe("TransactionVerifier", () => {
       currency: currency.toString(),
       inBlinding: inBlinding.map(it => it.toString()),
       inAmount: inAmount.map(it => it.toString()),
-      root: merkleProof.pathRoot.toString(),
+      root: root,
       pathElements: [[...merkleProof.pathElements].map(it => it.toString()), [...merkleProof.pathElements].map(it => it.toString())],
       pathIndices: [[...merkleProof.pathIndices], [...merkleProof.pathIndices]],
-      recipient: "0",
+      recipient: recipient,
       withdrawnAmount: withdrawnAmount.toString(),
-      outPublicKey: [personalPublicKey.toString(), personalPublicKey.toString()],
+      outPublicKey: [personalPublicKey.toString(), randomPublicKey.toString()],
       outBlinding: outBlinding.map(it => it.toString()),
       outAmount: outAmount.map(it => it.toString()),
     }
 
     const proof = await generateTransactionProof(input);
     const valid = await verifier.verifyProof(
-      [proof.pi_a[0], proof.pi_a[1]],
-      [[proof.pi_b[0][1], proof.pi_b[0][0]], [proof.pi_b[1][1], proof.pi_b[1][0]]],
-      [proof.pi_c[0], proof.pi_c[1]],
+      proof,
       [
         nullifier1,
         nullifier2,
         outCommitment1,
-        outCommitment2
+        outCommitment2,
+        currency,
+        root,
+        recipient,
+        withdrawnAmount,
+        personalPublicKey,
+        randomPublicKey
       ]
     );
 

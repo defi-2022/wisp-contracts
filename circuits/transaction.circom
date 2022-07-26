@@ -104,4 +104,4 @@ template Transaction(levels, inputCount, outputCount) {
     recipientSquare <== recipient * recipient;
 }
 
-component main = Transaction(10, 2, 2);
+component main { public [root, recipient, currency, withdrawnAmount, outPublicKey] } = Transaction(10, 2, 2);

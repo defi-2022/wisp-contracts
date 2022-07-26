@@ -1,4 +1,3 @@
-import "@nomiclabs/hardhat-ethers"
 import chai from "chai";
 import { ethers } from "hardhat"
 import { DepositVerifier } from "../artifacts/contracts/types";
